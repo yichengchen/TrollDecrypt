@@ -18,6 +18,12 @@ make package
 
 For a TrollStore package, run `make package FINALPACKAGE=1 PACKAGE_TIPA=1`.
 
+On macOS, `THEOS=/path/to/theos ./build_trollstore.sh` builds an arm64
+TrollStore package using the patched iPhoneOS16.5 SDK. It writes both
+`dist/TrollDecrypt.ipa` and `dist/TrollDecrypt.tipa` (identical contents), plus
+checksums and build information. This path does not require Debian packaging tools.
+See [UPSTREAM_MERGES.md](UPSTREAM_MERGES.md) for the integrated PRs.
+
 ## Extension decryption in this fork
 
 Extensions are discovered from both `PlugIns/*.appex` and `Extensions/*.appex`,
