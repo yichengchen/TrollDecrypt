@@ -44,6 +44,11 @@ requires one arm64 slice; unsupported binaries are retained unchanged in the IPA
 Apps without embedded frameworks also use suspended decryption for their main
 executable. Otherwise, the same path is a fallback if the main executable cannot
 be dumped after a normal launch. Framework dumping still depends on the normal app process.
+Running-process decryption supports FAT32/FAT64 containers, including frameworks
+with both armv7 and arm64 slices. It matches the loaded image's header and load
+commands, then exports that slice as a thin Mach-O. Encrypted bytes are read using
+the segment's VM offset and written at the slice's file offset; unused encrypted
+architectures are removed from the output. The installed source is not rewritten.
 IPA export is best-effort: a failed main executable, framework, or extension does
 not stop the remaining work. Every attempt writes to a separate file, so failures
 retain the original bytes and encryption flag rather than a truncated or partially
@@ -55,6 +60,9 @@ reports failure if it cannot decrypt the requested executable.
 
 Run `sh Tests/run.sh` on macOS for extension discovery, Mach-O bounds checks,
 FAT inspection, retained-original output transactions, and invalid launch PID regressions.
+The FAT regressions also cover CPU subtype/UUID matching, both container byte
+orders, segment VM offsets, actual Mach task reads, byte-for-byte reconstruction,
+and retaining the original output on ciphertext, zero pages or interrupted reads.
 Actual FairPlay decryption requires an on-device test with an installed app.
 
 ## Credits / Thanks

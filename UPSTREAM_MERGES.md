@@ -16,6 +16,13 @@ Base: `c4bd8c1` (upstream `main`, checked 2026-11-19).
 The framework install name is also set to `@rpath/SSZipArchive.framework/SSZipArchive`
 so TrollStore loads the copy inside the app's `Frameworks` directory.
 
+The FAT framework follow-up replaces PR #34's thin-file-only guard with selection
+of the slice actually loaded by the target process. The full Mach-O header and load
+commands must match (allowing an in-memory cryptid change). Reconstruction exports
+that one slice, uses segment VM offsets for memory reads, checks that bytes differ
+from ciphertext and are nonzero, and clears cryptid only after every read succeeds.
+Existing staged-output transactions retain the previous file if the attempt fails.
+
 Validation: `sh Tests/run.sh`, release arm64 compilation and package inspection
 (Payload structure, embedded framework dependency, minimum OS, property lists,
 entitlements and archive integrity). Actual FairPlay decryption still requires

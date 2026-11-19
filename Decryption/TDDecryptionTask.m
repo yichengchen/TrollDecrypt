@@ -6,6 +6,7 @@
 #import "LaunchdResponse.h"
 #import "MemoryUtilities.h"
 #import "MachOInspection.h"
+#import "MachORebuilder.h"
 #import "SuspendedDecryption.h"
 #import "DecryptionOutput.h"
 #import <objc/runtime.h>
@@ -315,11 +316,6 @@ TDDecryptionTaskOptions TDDecryptionTaskDefaultOptions(void) {
         return image.encryption.cryptid != 0;
     }] != NSNotFound;
     if (!encrypted) return TDWriteDecryptionOutput(imagePath, outputPath, ^BOOL(NSString *stagedPath, NSError **attemptError) { return YES; }, nil);
-    // The running-process rebuilder uses thin-image file offsets. Other layouts must
-    // use the suspended path or be retained unchanged rather than patching wrong bytes.
-    TDMachOImage *sourceImage = sourceImages.firstObject;
-    if (sourceImages.count != 1 || sourceImage.fileOffset != 0 ||
-        sourceImage.encryptedVMOffset != sourceImage.encryption.cryptoff) return NO;
     vm_map_t task = 0;
     if (task_for_pid(mach_task_self(), pid, &task)) {
         NSLog(@"failed to get task for pid %d", pid);
@@ -335,22 +331,21 @@ TDDecryptionTaskOptions TDDecryptionTaskDefaultOptions(void) {
 
         NSLog(@"main image info: %@", NSStringFromMainImageInfo(mainImageInfo));
 
-        __block struct encryption_info_command encryptionInfo = {0};
-        uint64_t loadCommandAddress = 0;
-        if (!readEncryptionInfo(task, mainImageInfo.loadAddress, &encryptionInfo, &loadCommandAddress)) {
-            NSLog(@"failed to read encryption info for pid %d", pid);
+        NSError *sliceError = nil;
+        NSData *loadedHeader = readLoadedImageHeader(task, mainImageInfo.loadAddress);
+        TDMachOImage *sourceImage = TDImageMatchingLoadedHeader(sourceImages, loadedHeader, &sliceError);
+        if (!sourceImage) {
+            NSLog(@"Cannot select the loaded slice for %@: %@", imagePath, sliceError);
             return NO;
         }
-
-        NSLog(@"encryption info: cryptoff=0x%x cryptsize=0x%x cryptid=%d",
-              encryptionInfo.cryptoff, encryptionInfo.cryptsize, encryptionInfo.cryptid);
-        if (encryptionInfo.cryptoff != sourceImage.encryption.cryptoff ||
-            encryptionInfo.cryptsize != sourceImage.encryption.cryptsize) return NO;
-
-        return TDWriteDecryptionOutput(imagePath, outputPath, ^BOOL(NSString *stagedPath, NSError **attemptError) {
+        NSLog(@"Rebuilding loaded slice at file offset 0x%llx (%llu bytes): %@",
+            sourceImage.fileOffset, sourceImage.fileSize, imagePath);
+        BOOL success = TDWriteDecryptionOutput(imagePath, outputPath, ^BOOL(NSString *stagedPath, NSError **attemptError) {
             return rebuildDecryptedImageAtPath(imagePath, task, mainImageInfo.loadAddress,
-                &encryptionInfo, loadCommandAddress, stagedPath);
-        }, nil);
+                sourceImage, stagedPath, attemptError);
+        }, &sliceError);
+        if (!success) NSLog(@"Cannot decrypt loaded slice for %@: %@", imagePath, sliceError);
+        return success;
     } @finally {
         mach_port_deallocate(mach_task_self(), task);
     }
