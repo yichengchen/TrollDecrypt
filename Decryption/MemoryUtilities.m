@@ -11,21 +11,13 @@ kern_return_t mach_vm_region(vm_map_read_t target_task, mach_vm_address_t *addre
 // <libproc.h> is not shipped in the iPhoneOS SDK.
 extern int proc_regionfilename(int pid, uint64_t address, void *buffer, uint32_t buffersize);
 
-static void removePrefix(char *str, const char *prefix) {
-    size_t len_str = strlen(str);
-    size_t len_prefix = strlen(prefix);
-
-    if (len_str >= len_prefix && strncmp(str, prefix, len_prefix) == 0) {
-        memmove(str, str + len_prefix, len_str - len_prefix + 1);
-    }
+static const char *pathWithoutPrivatePrefix(const char *path) {
+    return strncmp(path, "/private/", 9) == 0 ? path + 8 : path;
 }
 
-// Mach-O images can be reported either with or without the /private prefix
-// depending on who resolved the path, so compare both spellings.
-static bool imagePathsMatch(char *candidate, const char *expected) {
-    if (strcmp(candidate, expected) == 0) return true;
-    removePrefix(candidate, "/private");
-    return strcmp(candidate, expected) == 0;
+// Both dyld and VM-region lookup must accept either spelling of the same path.
+static bool imagePathsMatch(const char *candidate, const char *expected) {
+    return strcmp(pathWithoutPrivatePrefix(candidate), pathWithoutPrivatePrefix(expected)) == 0;
 }
 
 static bool readFully(int fd, void *buffer, size_t size) {
