@@ -10,6 +10,7 @@ fi
 
 "$make_command" clean FINALPACKAGE=1 ARCHS=arm64 THEOS_PACKAGE_SCHEME=
 "$make_command" stage FINALPACKAGE=1 ARCHS=arm64 THEOS_PACKAGE_SCHEME= PACKAGE_TIPA=1
+python3 Tests/verify_package.py TrollDecrypt.tipa
 
 mkdir -p dist
 cp TrollDecrypt.tipa dist/TrollDecrypt.ipa

@@ -16,7 +16,8 @@ TrollDecrypt_CFLAGS = -fobjc-arc -I./include -I./deps
 
 TrollDecrypt_LDFLAGS += -F$(THEOS_OBJ_DIR)
 TrollDecrypt_LDFLAGS += -Wl,-rpath,@executable_path/Frameworks
-TrollDecrypt_EXTRA_FRAMEWORKS += SSZipArchive
+# Link the freshly built framework directly instead of a cached Theos copy.
+TrollDecrypt_OBJ_FILES += $(THEOS_OBJ_DIR)/SSZipArchive.framework/SSZipArchive
 
 TrollDecrypt_OBJCFLAGS = -include shared.h
 TrollDecrypt_CODESIGN_FLAGS = -STrollDecrypt.entitlements
